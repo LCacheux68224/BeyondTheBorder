@@ -1,0 +1,39 @@
+# This file contains metadata for your plugin. Since 
+# version 2.0 of QGIS this is the proper way to supply 
+# information about a plugin. The old method of 
+# embedding metadata in __init__.py will 
+# is no longer supported since version 2.0.
+
+# This file should be included when you package your plugin.# Mandatory items:
+
+[general]
+name=Beyond the border
+qgisMinimumVersion=2.0
+description=Lissage et schématisation carroyée
+version=0.1
+author=Insee Établissement de Strasbourg, Psar AU DG
+email=lionel.cacheux@insee.fr
+
+about=Lissage et schématisation carroyée utilisant le package btb du Psar AU
+
+tracker=github
+repository=github
+# End of mandatory metadata
+
+# Recommended items:
+
+# Uncomment the following line and add your changelog:
+# changelog=
+
+# Tags are comma separated with spaces allowed
+tags=lissage smoothing carroyage
+
+homepage=github
+category=Vector
+icon=icon.png
+# experimental flag
+experimental=False
+
+# deprecated flag (applies to the whole plugin, not just a single version)
+deprecated=False
+
