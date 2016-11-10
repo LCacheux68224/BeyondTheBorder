@@ -266,31 +266,64 @@ class BeyondTheBorder:
                 smoothedDatas = QgsVectorLayer(processingOutput['grille_lissee '],'grille_lissee','ogr')
                 QgsMapLayerRegistry.instance().addMapLayer(smoothedDatas)                
             else:
-                smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
                 gridLayerPath = self.dlg.inputGrid.text()
-                print "gridLayerPath :", gridLayerPath
+                # smoothedDatasPath = self.dlg.outputFile.text()
+                smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
                 processing.runalg("r:btblissagegrille",sortie, cellsize,bandwidth, re.sub('\.shp','.dbf',gridLayerPath), smoothedDatasPath)
-                smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr')
-                gridLayer = QgsVectorLayer(gridLayerPath,'grille_de_lissage','ogr') 
-                QgsMapLayerRegistry.instance().addMapLayer(gridLayer)
+                gridLayer = QgsVectorLayer(gridLayerPath,'grille','ogr')
+                QgsMapLayerRegistry.instance().addMapLayer(gridLayer, addToLegend = False)
+                # mergedLayer = processing.runalg("qgis:joinattributestable",gridLayer,"C:/Temp/output4.dbf","ID","ID",None)
+                # newLayer = QgsVectorLayer(mergedLayer['OUTPUT_LAYER'],'grille_lissee','ogr')
+                # QgsMapLayerRegistry.instance().addMapLayer(newLayer)  
+                smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr') 
+                QgsMapLayerRegistry.instance().addMapLayer(smoothedDatas, addToLegend = False)                 
                 fieldList = [field.name() for field in list(smoothedDatas.pendingFields().toList())]
-                print "fields 1 : ",fieldList
-                fieldList.remove(u'x')
-                fieldList.remove(u'y')
-                fieldList.remove('ID')
-                print "fields 2 : ", fieldList
+                fieldList.remove('x')
+                fieldList.remove('y')
+                fieldList.remove('ID') 
                 joinObject = QgsVectorJoinInfo()
                 joinObject.joinLayerId = smoothedDatas.id()
                 joinObject.prefix = ''
                 joinObject.joinFieldName = 'ID'
                 joinObject.targetFieldName = 'ID'
-                # joinObject.setJoinFieldNamesSubset(fieldList)
+                joinObject.setJoinFieldNamesSubset(fieldList)
                 joinObject.memoryCache = True
-                gridLayer.addJoin(joinObject)
-                print 'fields 3 :', str([field.name() for field in list(gridLayer.pendingFields().toList())])
-                QgsVectorFileWriter.writeAsVectorFormat(gridLayer, outputFile,"utf-8", None, "ESRI Shapefile")
-                resultLayer = QgsVectorLayer(outputFile,'sortie','ogr')
+                gridLayer.addJoin(joinObject) 
+                
+                QgsVectorFileWriter.writeAsVectorFormat(gridLayer, self.dlg.outputFile.text(),"utf-8", None, "ESRI Shapefile")
+                # gridLayer.removeJoin(joinObject)
+                QgsMapLayerRegistry.instance().removeMapLayers([gridLayer.id()])
+                # gridLayer.removeJoin(joinObject)
+                QgsMapLayerRegistry.instance().removeMapLayers([smoothedDatas.id()])
+                resultLayer = QgsVectorLayer(self.dlg.outputFile.text(),'lissage','ogr')
                 QgsMapLayerRegistry.instance().addMapLayer(resultLayer)
-                del smoothedDatas
-            # shutil.rmtree(dirpath)
+                '''
+                    smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
+                    gridLayerPath = self.dlg.inputGrid.text()
+                    print "gridLayerPath :", gridLayerPath
+                    processing.runalg("r:btblissagegrille",sortie, cellsize,bandwidth, re.sub('\.shp','.dbf',gridLayerPath), smoothedDatasPath)
+                    smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr')
+                    gridLayer = QgsVectorLayer(gridLayerPath,'grille_de_lissage','ogr') 
+                    QgsMapLayerRegistry.instance().addMapLayer(gridLayer)
+                    fieldList = [field.name() for field in list(smoothedDatas.pendingFields().toList())]
+                    print "fields 1 : ",fieldList
+                    fieldList.remove(u'x')
+                    fieldList.remove(u'y')
+                    fieldList.remove('ID')
+                    print "fields 2 : ", fieldList
+                    joinObject = QgsVectorJoinInfo()
+                    joinObject.joinLayerId = smoothedDatas.id()
+                    joinObject.prefix = ''
+                    joinObject.joinFieldName = 'ID'
+                    joinObject.targetFieldName = 'ID'
+                    # joinObject.setJoinFieldNamesSubset(fieldList)
+                    joinObject.memoryCache = True
+                    gridLayer.addJoin(joinObject)
+                    print 'fields 3 :', str([field.name() for field in list(gridLayer.pendingFields().toList())])
+                    QgsVectorFileWriter.writeAsVectorFormat(gridLayer, outputFile,"utf-8", None, "ESRI Shapefile")
+                    resultLayer = QgsVectorLayer(outputFile,'sortie','ogr')
+                    QgsMapLayerRegistry.instance().addMapLayer(resultLayer)
+                    del smoothedDatas
+                '''
+            shutil.rmtree(dirpath)
             

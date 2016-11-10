@@ -152,13 +152,12 @@ class BeyondTheBorderDialog(QtGui.QDialog, FORM_CLASS):
         self.inputGrid.setText(fileName0)
 
     def browse( self ):
-        fileName0 = QtGui.QFileDialog.getSaveFileName(self, 'Save as',
+        fileName0 = QtGui.QFileDialog.getSaveFileName(self, 'Save Shapefile as',
                                         self.oldPath, "Shapefile (*.shp);;All files (*)")
         fileName = os.path.splitext(fileName0)[0]+ u'.shp'
         if os.path.splitext(fileName0)[0] != '':
             self.oldPath = os.path.dirname(fileName)
         layername = os.path.splitext(os.path.basename(fileName))[0]
         if (layername=='.shp'):
-            return
-       
+            return       
         self.outputFile.setText(fileName)      
