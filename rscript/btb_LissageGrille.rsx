@@ -5,6 +5,18 @@
 ##Liste_de_deciles = string NULL
 ##Grille = file
 ##Sortie = string
+
+packages<-function(x){
+x<-as.character(match.call()[[2]])
+if (!require(x,character.only=TRUE) || packageVersion(x)<'0.1.3'){
+if ("package:btb" %in% search()) {
+detach("package:btb", unload=TRUE)}
+install.packages(pkgs=x,repos="http://cran.univ-paris1.fr/")
+require(x,character.only=TRUE)
+}
+}
+packages(btb)
+
 require(btb)
 require(foreign)
 

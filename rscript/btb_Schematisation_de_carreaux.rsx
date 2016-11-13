@@ -7,9 +7,19 @@
 ##grille_lissee = output vector
 
 # require(foreign)
+
+packages<-function(x){
+x<-as.character(match.call()[[2]])
+if (!require(x,character.only=TRUE) || packageVersion(x)<'0.1.3'){
+if ("package:btb" %in% search()) {
+detach("package:btb", unload=TRUE)}
+install.packages(pkgs=x,repos="http://cran.univ-paris1.fr/")
+require(x,character.only=TRUE)
+}
+}
+packages(btb)
 library(btb)
 require(rgdal)
-
 donnees <- read.csv(Fichier_CSV)
 
 if (Liste_de_deciles == 'NULL') {

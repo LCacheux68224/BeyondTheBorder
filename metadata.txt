@@ -9,12 +9,12 @@
 [general]
 name=Beyond the border
 qgisMinimumVersion=2.0
-description=Lissage et schématisation carroyée
+description=Lissage et schematisation carroyee
 version=0.1
-author=Insee Établissement de Strasbourg, Psar AU DG
+author=Insee Etablissement de Strasbourg, Psar AU DG
 email=lionel.cacheux@insee.fr
 
-about=Lissage et schématisation carroyée utilisant le package btb du Psar AU
+about=Lissage et schematisation carroyee utilisant le package btb du Psar AU
 
 tracker=github
 repository=github
