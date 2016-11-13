@@ -30,7 +30,7 @@ tags=lissage smoothing carroyage
 
 homepage=github
 category=Vector
-icon=icon.png
+icon=grid.png
 # experimental flag
 experimental=False
 

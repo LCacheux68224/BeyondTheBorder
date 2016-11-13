@@ -34,6 +34,9 @@ import processing
 from qgis.utils import iface
 import qgis.core as qgis
 import re
+from qgis.gui import QgsGenericProjectionSelector
+from qgis.gui import QgsMessageBar
+from processing.core.ProcessingConfig import ProcessingConfig
 
 class BeyondTheBorder:
     """QGIS Plugin Implementation."""
@@ -69,9 +72,10 @@ class BeyondTheBorder:
         self.actions = []
         self.menu = self.tr(u'&Beyond the border')
         # TODO: We are going to let the user set this up in a future iteration
+        # self.toolbar = self.iface.addToolBar(u'addDatabaseToolBarIcon')
         self.toolbar = self.iface.addToolBar(u'BeyondTheBorder')
         self.toolbar.setObjectName(u'BeyondTheBorder')
-
+        # self.toolbar.setObjectName(u'addDatabaseToolBarIcon')
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
@@ -159,12 +163,12 @@ class BeyondTheBorder:
             self.iface.addPluginToVectorMenu(
                 self.menu,
                 action)
-            print str(processing.algs.r.RUtils.RUtils.RScriptsFolder())
-            RscriptFolder = processing.algs.r.RUtils.RUtils.RScriptsFolder()
-
-            shutil.copyfile(self.plugin_dir+"/rscript/btb_LissageGrille.rsx", RscriptFolder+"/btb_LissageGrille.rsx")
-            shutil.copyfile(self.plugin_dir+"/rscript/btb_Schematisation_de_carreaux.rsx", RscriptFolder+"/btb_Schematisation_de_carreaux.rsx")
-            shutil.copyfile(self.plugin_dir+"/rscript/btb_Schematisation_de_carreaux.rsx.help", RscriptFolder+"/btb_Schematisation_de_carreaux.rsx.help")
+            if ProcessingConfig.getSetting('ACTIVATE_R'):
+                # RscriptFolder = processing.algs.r.RUtils.RUtils.RScriptsFolder()
+                RscriptFolder = ProcessingConfig.getSetting('R_SCRIPTS_FOLDER')
+                shutil.copyfile(self.plugin_dir+"/rscript/btb_LissageGrille.rsx", RscriptFolder+"/btb_LissageGrille.rsx")
+                shutil.copyfile(self.plugin_dir+"/rscript/btb_Schematisation_de_carreaux.rsx", RscriptFolder+"/btb_Schematisation_de_carreaux.rsx")
+                shutil.copyfile(self.plugin_dir+"/rscript/btb_Schematisation_de_carreaux.rsx.help", RscriptFolder+"/btb_Schematisation_de_carreaux.rsx.help")
 
         self.actions.append(action)
 
@@ -173,7 +177,7 @@ class BeyondTheBorder:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/BeyondTheBorder/icon.png'
+        icon_path = ':/plugins/BeyondTheBorder/grid.png'
         self.add_action(
             icon_path,
             text=self.tr(u'btb'),
@@ -194,136 +198,158 @@ class BeyondTheBorder:
 
     def run(self):
         """Run method that performs all the real work"""
-        # show the dialog
-        self.dlg.populateLayers()
-        self.dlg.outputFile.setText('')
-        #if self.dlg.grid.isChecked():
-        #    self.dlg.populateGrid()
-        self.dlg.useCanvasCRS()
-        self.dlg.show()
-        # Run the dialog event loop
-        result = self.dlg.exec_()
-        # See if OK was pressed
-        if result == 1:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            
-            inputLayer = QgsMapLayerRegistry.instance().mapLayersByName(self.dlg.inputLayer.currentText())[0]
-            # attributeList = [field for field in inputLayer.pendingFields() if field.typeName in ('Integer', 'Real')]
-            newAttributeList = []
-            newAttributeList.extend([QgsField('x', QVariant.Int, "Integer", 10)])
-            newAttributeList.extend([QgsField('y', QVariant.Int, "Integer", 10)])
+        if ProcessingConfig.getSetting('ACTIVATE_R')==False:
+            iface.messageBar().pushMessage("Error", "R not activated", level=QgsMessageBar.CRITICAL, duration=3)
+        else :        
+            # show the dialog
+            self.dlg.populateLayers()
+            # self.dlg.outputFile.setText('')
+            #if self.dlg.grid.isChecked():
+            #    self.dlg.populateGrid()
+            # self.dlg.useCanvasCRS()
+            # self.dlg.mGroupBox.setCollapsed(True)
+            self.dlg.show()
+            # Run the dialog event loop
+            result = self.dlg.exec_()
+            # See if OK was pressed
+            if result == 1:
+                # Do something useful here - delete the line containing pass and
+                # substitute with your code.
+                inputLayer = QgsMapLayerRegistry.instance().mapLayersByName(self.dlg.inputLayer.currentText())[0]
+                # attributeList = [field for field in inputLayer.pendingFields() if field.typeName in ('Integer', 'Real')]
+                newAttributeList = []
+                newAttributeList.extend([QgsField('x', QVariant.Int, "Integer", 10)])
+                newAttributeList.extend([QgsField('y', QVariant.Int, "Integer", 10)])
 
+                    
+                valueFieldNames = self.dlg.selectedAttributesList
+
+                if isinstance(valueFieldNames, str):
+                    valueFieldNames = (valueFieldNames,)
+                listeIndex = [inputLayer.fieldNameIndex(element) \
+                        for element in valueFieldNames]
                 
-            valueFieldNames = self.dlg.selectedAttributesList
-
-            if isinstance(valueFieldNames, str):
-                valueFieldNames = (valueFieldNames,)
-            listeIndex = [inputLayer.fieldNameIndex(element) \
-                    for element in valueFieldNames]
-            
-            newAttributeList.extend([inputLayer.pendingFields()[elem] for elem in listeIndex])
-            features = inputLayer.getFeatures()
-            listGeom = []
-            if inputLayer.geometryType() == qgis.QGis.NoGeometry:
-                coordNames = [self.dlg.xCoord.currentText(), self.dlg.yCoord.currentText()]
-                coordIndex = [inputLayer.fieldNameIndex(element) \
-                    for element in coordNames]
-            for element in features :
-                outFeat = QgsFeature()
+                newAttributeList.extend([inputLayer.pendingFields()[elem] for elem in listeIndex])
+                features = inputLayer.getFeatures()
+                listGeom = []
                 if inputLayer.geometryType() == qgis.QGis.NoGeometry:
-                    x = element.attributes()[coordIndex[0]]
-                    y = element.attributes()[coordIndex[1]]
-                else:    
-                    # currentValues = [] # list(element.geometry().centroid().asPoint())
-                    x = int(element.geometry().centroid().asPoint()[0])
-                    y = int(element.geometry().centroid().asPoint()[1])
-                currentValues = [x,y]
-                currentValues.extend([(element.attributes()[i]) for i in listeIndex]) 
-                # currentValues.extend([(element.attributes()[i]) for i in listeIndex])
-                outFeat.setAttributes(currentValues)    
-                listGeom.append(outFeat)               
-            
-            tempLayer = QgsVectorLayer('Point?crs=epsg:4326', 'tempLayer','memory')
-            tempLayer.dataProvider().addAttributes(newAttributeList)
-            tempLayer.dataProvider().addFeatures(listGeom)
-            tempLayer.updateFields()
-            tempLayer.commitChanges()
-            srs=self.dlg.mQgsProjectionSelectionWidget.crs().authid()
-            if 'EPSG' in srs :
-                layerCRS =  int(srs.split(':')[1])
-            cellsize = int(self.dlg.cellsize.value())
-            bandwidth = int(self.dlg.bandwidth.value())
-            dirpath = tempfile.mkdtemp()
-            sortie = str(re.sub('\\\\','/',dirpath) + "/output.csv")
-            
-            QgsVectorFileWriter.writeAsVectorFormat(tempLayer, sortie, "utf8", None, "CSV")
-            print "sortie : ", sortie
-            outputFile = self.dlg.outputFile.text()
-            print "outputFile : ", outputFile
-            if self.dlg.noGrid.isChecked():    
-                processingOutput = processing.runalg("r:btbschematisationdecarreaux",sortie,cellsize,bandwidth,layerCRS,outputFile)
-                smoothedDatas = QgsVectorLayer(processingOutput['grille_lissee '],'grille_lissee','ogr')
-                QgsMapLayerRegistry.instance().addMapLayer(smoothedDatas)                
-            else:
-                gridLayerPath = self.dlg.inputGrid.text()
-                # smoothedDatasPath = self.dlg.outputFile.text()
-                smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
-                processing.runalg("r:btblissagegrille",sortie, cellsize,bandwidth, re.sub('\.shp','.dbf',gridLayerPath), smoothedDatasPath)
-                gridLayer = QgsVectorLayer(gridLayerPath,'grille','ogr')
-                QgsMapLayerRegistry.instance().addMapLayer(gridLayer, addToLegend = False)
-                # mergedLayer = processing.runalg("qgis:joinattributestable",gridLayer,"C:/Temp/output4.dbf","ID","ID",None)
-                # newLayer = QgsVectorLayer(mergedLayer['OUTPUT_LAYER'],'grille_lissee','ogr')
-                # QgsMapLayerRegistry.instance().addMapLayer(newLayer)  
-                smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr') 
-                QgsMapLayerRegistry.instance().addMapLayer(smoothedDatas, addToLegend = False)                 
-                fieldList = [field.name() for field in list(smoothedDatas.pendingFields().toList())]
-                fieldList.remove('x')
-                fieldList.remove('y')
-                fieldList.remove('ID') 
-                joinObject = QgsVectorJoinInfo()
-                joinObject.joinLayerId = smoothedDatas.id()
-                joinObject.prefix = ''
-                joinObject.joinFieldName = 'ID'
-                joinObject.targetFieldName = 'ID'
-                joinObject.setJoinFieldNamesSubset(fieldList)
-                joinObject.memoryCache = True
-                gridLayer.addJoin(joinObject) 
+                    coordNames = [self.dlg.xCoord.currentText(), self.dlg.yCoord.currentText()]
+                    coordIndex = [inputLayer.fieldNameIndex(element) \
+                        for element in coordNames]
+                for element in features :
+                    outFeat = QgsFeature()
+                    if inputLayer.geometryType() == qgis.QGis.NoGeometry:
+                        x = element.attributes()[coordIndex[0]]
+                        y = element.attributes()[coordIndex[1]]
+                    else:    
+                        # currentValues = [] # list(element.geometry().centroid().asPoint())
+                        x = int(element.geometry().centroid().asPoint()[0])
+                        y = int(element.geometry().centroid().asPoint()[1])
+                    currentValues = [x,y]
+                    currentValues.extend([(element.attributes()[i]) for i in listeIndex]) 
+                    # currentValues.extend([(element.attributes()[i]) for i in listeIndex])
+                    outFeat.setAttributes(currentValues)    
+                    listGeom.append(outFeat)               
                 
-                QgsVectorFileWriter.writeAsVectorFormat(gridLayer, self.dlg.outputFile.text(),"utf-8", None, "ESRI Shapefile")
-                # gridLayer.removeJoin(joinObject)
-                QgsMapLayerRegistry.instance().removeMapLayers([gridLayer.id()])
-                # gridLayer.removeJoin(joinObject)
-                QgsMapLayerRegistry.instance().removeMapLayers([smoothedDatas.id()])
-                resultLayer = QgsVectorLayer(self.dlg.outputFile.text(),'lissage','ogr')
-                QgsMapLayerRegistry.instance().addMapLayer(resultLayer)
-                '''
-                    smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
+                tempLayer = QgsVectorLayer('Point?crs=epsg:4326', 'tempLayer','memory')
+                tempLayer.dataProvider().addAttributes(newAttributeList)
+                tempLayer.dataProvider().addFeatures(listGeom)
+                tempLayer.updateFields()
+                tempLayer.commitChanges()
+                cellsize = int(self.dlg.cellsize.value())
+                bandwidth = int(self.dlg.bandwidth.value())
+                dirpath = tempfile.mkdtemp()
+                sortie = str(re.sub('\\\\','/',dirpath) + "/output.csv")
+                
+                QgsVectorFileWriter.writeAsVectorFormat(tempLayer, sortie, "utf8", None, "CSV")
+                outputFile = self.dlg.outputFile
+                if self.dlg.mGroupBoxPercentile.isCollapsed():
+                    quantileList = 'NULL'
+                else:
+                    quantileList = self.dlg.RquantileList                
+                if self.dlg.mGroupBoxUserGrid.isCollapsed():
+                    crsOption = False
+                    projSelector = QgsGenericProjectionSelector()
+                    while crsOption == False :               
+                        projSelector.exec_()
+                        srs = projSelector.selectedAuthId()
+                        if 'EPSG' in srs :
+                            layerCRS =  int(srs.split(':')[1])
+                            crsOption = True
+                        else :
+                            iface.messageBar().pushMessage("Error", "Please choose a valid EPSG code", level=QgsMessageBar.CRITICAL, duration=3)
+               
+                    # smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")   
+
+                    outputAlgo = processing.runalg("r:btbschematisationdecarreaux",sortie,cellsize,bandwidth,quantileList, layerCRS,None)            
+                    
+                    
+                    tempShapefile = QgsVectorLayer(outputAlgo['grille_lissee '],'grille_lissee','ogr')
+                    QgsMapLayerRegistry.instance().addMapLayer(tempShapefile, addToLegend = False) 
+                    QgsVectorFileWriter.writeAsVectorFormat(tempShapefile, outputFile,"utf-8", None, "ESRI Shapefile")
+                    smoothedDatas = QgsVectorLayer(self.dlg.outputFile,'grille_lissee','ogr')
+                    
+                    QgsMapLayerRegistry.instance().addMapLayer(smoothedDatas)   
+                    QgsMapLayerRegistry.instance().removeMapLayers([tempShapefile.id()])
+                else:
                     gridLayerPath = self.dlg.inputGrid.text()
-                    print "gridLayerPath :", gridLayerPath
-                    processing.runalg("r:btblissagegrille",sortie, cellsize,bandwidth, re.sub('\.shp','.dbf',gridLayerPath), smoothedDatasPath)
-                    smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr')
-                    gridLayer = QgsVectorLayer(gridLayerPath,'grille_de_lissage','ogr') 
-                    QgsMapLayerRegistry.instance().addMapLayer(gridLayer)
+                    # smoothedDatasPath = self.dlg.outputFile.text()
+                    smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
+                    processing.runalg("r:btblissagegrille",sortie, cellsize,bandwidth, quantileList, re.sub('\.shp','.dbf',gridLayerPath), smoothedDatasPath)
+                    gridLayer = QgsVectorLayer(gridLayerPath,'grille','ogr')
+                    QgsMapLayerRegistry.instance().addMapLayer(gridLayer, addToLegend = False)
+                    # mergedLayer = processing.runalg("qgis:joinattributestable",gridLayer,"C:/Temp/output4.dbf","ID","ID",None)
+                    # newLayer = QgsVectorLayer(mergedLayer['OUTPUT_LAYER'],'grille_lissee','ogr')
+                    # QgsMapLayerRegistry.instance().addMapLayer(newLayer)  
+                    smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr') 
+                    QgsMapLayerRegistry.instance().addMapLayer(smoothedDatas, addToLegend = False)                 
                     fieldList = [field.name() for field in list(smoothedDatas.pendingFields().toList())]
-                    print "fields 1 : ",fieldList
-                    fieldList.remove(u'x')
-                    fieldList.remove(u'y')
-                    fieldList.remove('ID')
-                    print "fields 2 : ", fieldList
+                    fieldList.remove('x')
+                    fieldList.remove('y')
+                    fieldList.remove('ID') 
                     joinObject = QgsVectorJoinInfo()
                     joinObject.joinLayerId = smoothedDatas.id()
                     joinObject.prefix = ''
                     joinObject.joinFieldName = 'ID'
                     joinObject.targetFieldName = 'ID'
-                    # joinObject.setJoinFieldNamesSubset(fieldList)
+                    joinObject.setJoinFieldNamesSubset(fieldList)
                     joinObject.memoryCache = True
-                    gridLayer.addJoin(joinObject)
-                    print 'fields 3 :', str([field.name() for field in list(gridLayer.pendingFields().toList())])
-                    QgsVectorFileWriter.writeAsVectorFormat(gridLayer, outputFile,"utf-8", None, "ESRI Shapefile")
-                    resultLayer = QgsVectorLayer(outputFile,'sortie','ogr')
+                    gridLayer.addJoin(joinObject) 
+                    
+                    QgsVectorFileWriter.writeAsVectorFormat(gridLayer, self.dlg.outputFile,"utf-8", None, "ESRI Shapefile")
+                    # gridLayer.removeJoin(joinObject)
+                    QgsMapLayerRegistry.instance().removeMapLayers([gridLayer.id()])
+                    # gridLayer.removeJoin(joinObject)
+                    QgsMapLayerRegistry.instance().removeMapLayers([smoothedDatas.id()])
+                    resultLayer = QgsVectorLayer(self.dlg.outputFile,'lissage','ogr')
                     QgsMapLayerRegistry.instance().addMapLayer(resultLayer)
-                    del smoothedDatas
-                '''
-            shutil.rmtree(dirpath)
-            
+                    '''
+                        smoothedDatasPath = str(re.sub('\\\\','/',dirpath) + "/lissage.dbf")
+                        gridLayerPath = self.dlg.inputGrid.text()
+                        print "gridLayerPath :", gridLayerPath
+                        processing.runalg("r:btblissagegrille",sortie, cellsize,bandwidth, re.sub('\.shp','.dbf',gridLayerPath), smoothedDatasPath)
+                        smoothedDatas = QgsVectorLayer(smoothedDatasPath,'donnees_lissee','ogr')
+                        gridLayer = QgsVectorLayer(gridLayerPath,'grille_de_lissage','ogr') 
+                        QgsMapLayerRegistry.instance().addMapLayer(gridLayer)
+                        fieldList = [field.name() for field in list(smoothedDatas.pendingFields().toList())]
+                        print "fields 1 : ",fieldList
+                        fieldList.remove(u'x')
+                        fieldList.remove(u'y')
+                        fieldList.remove('ID')
+                        print "fields 2 : ", fieldList
+                        joinObject = QgsVectorJoinInfo()
+                        joinObject.joinLayerId = smoothedDatas.id()
+                        joinObject.prefix = ''
+                        joinObject.joinFieldName = 'ID'
+                        joinObject.targetFieldName = 'ID'
+                        # joinObject.setJoinFieldNamesSubset(fieldList)
+                        joinObject.memoryCache = True
+                        gridLayer.addJoin(joinObject)
+                        print 'fields 3 :', str([field.name() for field in list(gridLayer.pendingFields().toList())])
+                        QgsVectorFileWriter.writeAsVectorFormat(gridLayer, outputFile,"utf-8", None, "ESRI Shapefile")
+                        resultLayer = QgsVectorLayer(outputFile,'sortie','ogr')
+                        QgsMapLayerRegistry.instance().addMapLayer(resultLayer)
+                        del smoothedDatas
+                    '''
+                shutil.rmtree(dirpath)
+                

@@ -26,8 +26,11 @@ import os
 from PyQt4 import QtGui, uic, QtCore
 import qgis.core as qgis
 from qgis.utils import iface
-from qgis.core import QgsCoordinateReferenceSystem
-from qgis.gui import QgsProjectionSelectionWidget
+# from qgis.core import QgsCoordinateReferenceSystem
+# from qgis.gui import QgsProjectionSelectionWidget
+from qgis.gui import QgsMessageBar
+from processing.core.ProcessingConfig import ProcessingConfig
+from PyQt4.QtCore import QUrl
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'btb_dialog_base.ui'))
@@ -43,23 +46,27 @@ class BeyondTheBorderDialog(QtGui.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+
         self.inputLayer.currentIndexChanged.connect(self.populateAttributes)        
         self.buttonBox.rejected.connect(self.reject)
-        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox_2.rejected.connect(self.reject)
+        self.buttonBox.accepted.connect(self.browse)
         self.btnAdd.clicked.connect(self.onAdd)
         self.availableAttributes.doubleClicked.connect(self.onAdd)
         self.btnRemove.clicked.connect(self.onRemove)
         self.selectedAttributes.doubleClicked.connect(self.onRemove)
-        self.grid.toggled.connect(self.radio_grid)
+        
+        # self.grid.toggled.connect(self.radio_grid)
         self.selectGrid.clicked.connect(self.browseForGrid)
         # self.mQgsProjectionSelectionWidget.setCrs(QgsCoordinateReferenceSystem('EPSG:4326'))
-        self.useCanvasCRS()
+        # self.useCanvasCRS()
         self.lastOpenedFile = None
-        self.selectFileName.clicked.connect(self.browse)
+        # self.selectFileName.clicked.connect(self.browse)
         self.oldPath = ''
-        
+        self.webView.load(QUrl('https://cran.r-project.org/web/packages/btb/index.html'))
         
     def populateLayers( self ):
+ 
         self.inputLayer.clear()     #InputTable
         myList = []
         myList = [layer.name() for layer in qgis.QgsMapLayerRegistry.instance().mapLayers().values() 
@@ -86,15 +93,18 @@ class BeyondTheBorderDialog(QtGui.QDialog, FORM_CLASS):
             fieldList = [field.name()
                for field in list(layer.pendingFields().toList())
                if field.type() in (QtCore.QVariant.Double, QtCore.QVariant.Int)]
-            # print fieldList
             self.availableAttributes.addItems(fieldList)    
             if hasattr(layer, 'geometryType') and layer.geometryType() == qgis.QGis.NoGeometry:
                 self.xLabel.setEnabled(True)
                 self.yLabel.setEnabled(True)
                 self.xCoord.setEnabled(True)
                 self.xCoord.addItems(fieldList)
+                if 'x' in fieldList:
+                    self.xCoord.setCurrentIndex(fieldList.index('x'))
                 self.yCoord.setEnabled(True)
                 self.yCoord.addItems(fieldList)
+                if 'y' in fieldList:
+                    self.yCoord.setCurrentIndex(fieldList.index('y'))               
             else:
                 self.xLabel.setEnabled(False)
                 self.yLabel.setEnabled(False)
@@ -121,7 +131,6 @@ class BeyondTheBorderDialog(QtGui.QDialog, FORM_CLASS):
             fieldList = [field.name()
                for field in list(layer.pendingFields().toList())
                if field.type() in (QtCore.QVariant.Double, QtCore.QVariant.Int)]
-            # print fieldList
             self.selectedAttributes.addItems(self.selectedAttributesList)
 
     def useCanvasCRS(self):
@@ -152,12 +161,74 @@ class BeyondTheBorderDialog(QtGui.QDialog, FORM_CLASS):
         self.inputGrid.setText(fileName0)
 
     def browse( self ):
+        self.legendOnlyTestSelectedOptions
+        if len(self.selectedAttributes) == 0 :
+            iface.messageBar().pushMessage("Error", "No attribute selected", level=QgsMessageBar.CRITICAL, duration=3)
+            return
+        elif ( self.mGroupBoxUserGrid.isCollapsed() == False and self.inputGrid.text() ==''):
+            iface.messageBar().pushMessage("Error", "No grid selected", level=QgsMessageBar.CRITICAL, duration=3)  
+            return  
+        # test percentile list    
+        quantileText = self.quantileList.text()
+        quantileText = quantileText.strip().replace(';',' ')
+        quantileList = quantileText.split()       
+        try:
+
+            temp = [float(elem) for elem in quantileList]
+            self.RquantileList = ','.join(quantileList)          
+        except:
+            iface.messageBar().pushMessage("Error", "Percentiles list incorrect", level=QgsMessageBar.CRITICAL, duration=3)
+            return   
+            
         fileName0 = QtGui.QFileDialog.getSaveFileName(self, 'Save Shapefile as',
                                         self.oldPath, "Shapefile (*.shp);;All files (*)")
         fileName = os.path.splitext(fileName0)[0]+ u'.shp'
         if os.path.splitext(fileName0)[0] != '':
             self.oldPath = os.path.dirname(fileName)
         layername = os.path.splitext(os.path.basename(fileName))[0]
+        self.outputFile = fileName
         if (layername=='.shp'):
             return       
-        self.outputFile.setText(fileName)      
+        # self.outputFile.setText(fileName)
+     
+        self.accept() 
+    
+    def testOptions (self):
+        if len(self.selectedAttributes) == 0 :
+            iface.messageBar().pushMessage("Error", "No attribute selected", level=QgsMessageBar.CRITICAL, duration=3)
+            return
+        elif ( self.mGroupBoxUserGrid.isCollapsed() == False and self.inputGrid.text() ==''):
+            iface.messageBar().pushMessage("Error", "No grid selected", level=QgsMessageBar.CRITICAL, duration=3)  
+            return
+        else :
+            self.browse   
+            self.accept()    
+    def testR (self):
+        if ProcessingConfig.getSetting('ACTIVATE_R')==False:
+            iface.messageBar().pushMessage("Error", "R not activated", level=QgsMessageBar.CRITICAL, duration=3)
+            self.reject()
+            
+    def legendOnlyTestSelectedOptions( self ):
+
+
+        # list of custom radiuses for the circles in the legend
+        print 'test'
+        quantileList = self.quantileList.text()
+        print quantileList
+        quantileList = quantileList.strip().replace(';',' ')
+        print quantileList
+        # self.legendOnlyValuesList = quantileList.split()
+        '''
+            if len(self.legendOnlyValuesList) == 0:  # automatic VALUES for the circles in the legend 
+                legendError = False
+                self.legendOnlyValuesList = []
+            else:
+
+            try:			
+                for i in range(len(self.legendOnlyValuesList)):  # custom values for the circles in the legend
+                   self.legendOnlyValuesList[i] = float(self.legendOnlyValuesList[i])
+                       self.legendOnlyValuesList.sort()
+                       quantileListError = False
+            except:   # if error in customisation -> automatic values for legend + warning message
+                quantileListError = True
+        '''
